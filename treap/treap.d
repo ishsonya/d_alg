@@ -1,85 +1,39 @@
+// Written in the D programming language.
+/**
+1) Stat in root is alwaus correct
+2) Methods are a monoid(group withoit reversed) acts on value,
+stats as described in their classes.
+*/
+
 import std.stdio;
 import std.algorithm;
 import std.random;
 
 
-/*
-1) Stat in root is alwaus correct
-2) Methods are a monoid(group withoit reversed) acts on value,
-    stats as described in their classes.
-*/
-
 ///
 const uint MY_RAND_MAX = 1 << 31;
 
-/// stats dummy
-struct MyStatType {
-    ///
-    int a;
-    /// neutral constructor
-    this(int v) {
-        a = v;
-    }
-    /// accept methods
-    void accept_method(ref MyMethodType method) {
-        // Method_type monoid acts on stat_type as a trasformation
-        // (map from stat_type into stat_type)
-        // stats.accept(method) is:
-        // 1) make a transformation from method
-        // 2) apply this transformation to stat
-        // in "stat.value += methods.to_add" transformation is (+= methods.to_add)
-        a += method.to_add;
-    }
-
-    /// accept stats
-    void accept_stats(ref MyStatType stats) {
-        a = min(a, stats.a);
-    }
-}
-
-///methods dummy
-struct MyMethodType {
-    ///
-    int to_add;
-    /// neutral constructor
-    /// accept methods
-    void accept_method(ref MyMethodType method) {
-        // actually is composition of methods ( *= in methods monoid)
-        to_add += method.to_add;
-        method.to_add = 0;
-    }
-    // /// accept_value
-    // void accept_value(ref ValueType value) {
-    //     value += to_add;
-    // }
-    // ///accept stats
-    // void accept_stats(ref StatType stats) {
-    //     stats.a += to_add;
-    // }
-}
-
-///decart tree, heap-tree, cartesian tree
+//decart tree, heap-tree, cartesian tree
 // class InnerTreap(KeyType, ValueType, MethodType, StatType) {
+/// Internal struct for a node of a treap
 struct InnerTreap(alias UltimateStruct) {
     alias KeyType = typeof(UltimateStruct.KeyType);
     alias ValueType = typeof(UltimateStruct.ValueType);
     alias StatType = typeof(UltimateStruct.StatType);
     alias MethodType = typeof(UltimateStruct.MethodType);
-    ////
+    /// pointers to children
     InnerTreap!(UltimateStruct)* left;
-    ////
-    InnerTreap!(UltimateStruct)* right;
-    ////
+    InnerTreap!(UltimateStruct)* right; /// ditto
+    /// keys
     KeyType key_tree;
-    ////
-    const int key_heap;
-    ////
+    const int key_heap; /// ditto
+    /// value
     ValueType value;
-    ///stats
+    /// statistics
     StatType stats;
     /// methods
     MethodType methods;
-    ///init
+
     this(KeyType key_tree_, ValueType value_) {
         left = null;
         right = null;
@@ -92,7 +46,11 @@ struct InnerTreap(alias UltimateStruct) {
     // InnerTreap* opCall() {
     //     return null;
     // }
-    ///
+    /**
+      pushes methods into the children.
+      It is guaranteed that values and statistics in children are
+      correct(reflect those of a node and subtree respectively) after push.
+    */
     void push() {
         if (left != null) {
             left.value.accept_method(methods);
@@ -106,7 +64,10 @@ struct InnerTreap(alias UltimateStruct) {
         }
         methods.flush();
     }
-    ///
+    /**
+      Updates statistics os subtree in a node. It is guaranteed that
+      statistics in a node are correct if statistics of children were correct.
+    */
     void update() {
         StatType local_stat = StatType(value, key_tree);
         if (left != null) {
@@ -122,7 +83,7 @@ struct InnerTreap(alias UltimateStruct) {
     }
 }
 
-///merge
+///merges 2 rtrees into one
 InnerTreap* merge(InnerTreap)(InnerTreap* left_treap, InnerTreap* right_treap) {
     if (left_treap == null) {
         return right_treap;
@@ -144,7 +105,17 @@ InnerTreap* merge(InnerTreap)(InnerTreap* left_treap, InnerTreap* right_treap) {
     }
 }
 
-/// split
+/**
+Splits rtree into 2 by value.
+Left tree is <=, right tree is >
+
+Params:
+treap = pointer to the root of a tree to split
+key_tree_ = key to split by
+
+Returns:
+tuple of pointers: to left and to right
+*/
 InnerTreap*[] split(InnerTreap, KeyType)(InnerTreap* treap, KeyType key_tree_) {
     if (treap == null) {
         return [treap, treap];
@@ -170,7 +141,16 @@ InnerTreap*[] split(InnerTreap, KeyType)(InnerTreap* treap, KeyType key_tree_) {
     return [left, right];
 }
 
-/// add elem
+/** adds elememt to a tree
+
+Params:
+key_tree = key of element to add
+value = value of element
+treap = pointer to the root of a tree in which element is added
+
+Returns:
+pointer to the root of new tree, with element added
+*/
 InnerTreap* radd_elem(InnerTreap, KeyType, ValueType)(KeyType key_tree, ValueType value, InnerTreap* treap) {
     InnerTreap* new_left;
     InnerTreap* new_right;
@@ -180,7 +160,18 @@ InnerTreap* radd_elem(InnerTreap, KeyType, ValueType)(KeyType key_tree, ValueTyp
     return merge(merge(new_left, new_treap), new_right);
 }
 
-/// method on range
+/**
+applies method on range.
+
+Params:
+method = presentation of a method to be applied, element of MethodType monoid
+left_cl = left closed border of a range on which method is applied
+right_op = right opened border of a range on which method is applied
+treap = pointer to the root of a tree to subsegment of which the method is applied
+
+Returns:
+Pointer to the root of a new treap with applied method
+*/
 InnerTreap* rmethod_on_range(MethodType, KeyType, InnerTreap)(MethodType method, KeyType left_cl, KeyType right_op, InnerTreap* treap) {
     InnerTreap* left_cut;
     InnerTreap* right_cut;
@@ -197,7 +188,14 @@ InnerTreap* rmethod_on_range(MethodType, KeyType, InnerTreap)(MethodType method,
     return merge(merge(left_cut, target), right_cut);
 }
 
-/// stats on range
+/**
+gets statistics on range
+
+Params:
+left_cl = left closed border of a range on which statistics are requested
+right_op = right opened border of a range on which statistics are requested
+treap = pointer to the root of a tree on subsegment of which statistics are requested
+*/
 StatType rstats_on_range(StatType, KeyType, InnerTreap)(KeyType left_cl, KeyType right_op, InnerTreap* treap) {
     InnerTreap* left_cut;
     InnerTreap* right_cut;
@@ -211,27 +209,31 @@ StatType rstats_on_range(StatType, KeyType, InnerTreap)(KeyType left_cl, KeyType
     return stats;
 }
 
-/// treap wrapper
+/**
+Treap type implements a multimap with statistics function and
+modification methods on subsegment.
+*/
 struct Treap(alias UltimateStruct) {
+    //types are unpacked from UltimateStruct
     alias KeyType = typeof(UltimateStruct.KeyType);
     alias ValueType = typeof(UltimateStruct.ValueType);
     alias StatType = typeof(UltimateStruct.StatType);
     alias MethodType = typeof(UltimateStruct.MethodType);
-    /// ._.
+    /// pointer to the root of recursive treap
     InnerTreap!(UltimateStruct)* treap;
-    ///init
+    /// constructor from one element
     this(KeyType key, ValueType value) {
         treap = new InnerTreap!(UltimateStruct)(key, value);
     }
-    ///
+    /// adds element into the Treap. O(log(n)) average case
     void add_elem(KeyType key_tree, ValueType value) {
         treap = radd_elem!(InnerTreap!(UltimateStruct), KeyType, ValueType)(key_tree, value, treap);
     }
-    ///
+    /// applys method on range. O(log(n)) average case
     void method_on_range(MethodType method, KeyType left_cl, KeyType right_op) {
         treap = rmethod_on_range!(MethodType, KeyType, InnerTreap!(UltimateStruct))(method, left_cl, right_op, treap);
     }
-    ///
+    /// gets statistics on range. O(log(n)) average case
     StatType stats_on_range(KeyType left_cl, KeyType right_op) {
         return rstats_on_range!(StatType, KeyType, InnerTreap!(UltimateStruct))(left_cl, right_op, treap);
     }
