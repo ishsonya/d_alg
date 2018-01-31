@@ -59,16 +59,16 @@ struct MyMethodType {
 }
 
 ///decart tree, heap-tree, cartesian tree
-// class Treap(KeyType, ValueType, MethodType, StatType) {
-struct Treap(alias UltimateStruct) {
+// class InnerTreap(KeyType, ValueType, MethodType, StatType) {
+struct InnerTreap(alias UltimateStruct) {
     alias KeyType = typeof(UltimateStruct.KeyType);
     alias ValueType = typeof(UltimateStruct.ValueType);
     alias StatType = typeof(UltimateStruct.StatType);
     alias MethodType = typeof(UltimateStruct.MethodType);
     ////
-    Treap!(UltimateStruct)* left;
+    InnerTreap!(UltimateStruct)* left;
     ////
-    Treap!(UltimateStruct)* right;
+    InnerTreap!(UltimateStruct)* right;
     ////
     KeyType key_tree;
     ////
@@ -89,7 +89,7 @@ struct Treap(alias UltimateStruct) {
         stats = StatType(value_, key_tree_);
         methods = MethodType();
     }
-    // Treap* opCall() {
+    // InnerTreap* opCall() {
     //     return null;
     // }
     ///
@@ -123,7 +123,7 @@ struct Treap(alias UltimateStruct) {
 }
 
 ///merge
-Treap* merge(Treap)(Treap* left_treap, Treap* right_treap) {
+InnerTreap* merge(InnerTreap)(InnerTreap* left_treap, InnerTreap* right_treap) {
     if (left_treap == null) {
         return right_treap;
     }
@@ -132,27 +132,27 @@ Treap* merge(Treap)(Treap* left_treap, Treap* right_treap) {
     }
     if (left_treap.key_heap < right_treap.key_heap) {
         right_treap.push();
-        right_treap.left = merge!Treap(left_treap, right_treap.left);
+        right_treap.left = merge!InnerTreap(left_treap, right_treap.left);
         right_treap.update();
         return right_treap;
     }
     else {
         left_treap.push();
-        left_treap.right = merge!Treap(left_treap.right, right_treap);
+        left_treap.right = merge!InnerTreap(left_treap.right, right_treap);
         left_treap.update();
         return left_treap;
     }
 }
 
 /// split
-Treap*[] split(Treap, KeyType)(Treap* treap, KeyType key_tree_) {
+InnerTreap*[] split(InnerTreap, KeyType)(InnerTreap* treap, KeyType key_tree_) {
     if (treap == null) {
         return [treap, treap];
     }
     treap.push();
-    Treap* left;
-    Treap* right;
-    Treap* temp;
+    InnerTreap* left;
+    InnerTreap* right;
+    InnerTreap* temp;
     if (key_tree_ > treap.key_tree) {
         // not sure if I can do this but I want to
         auto lexa = split(treap.right, key_tree_);
@@ -171,22 +171,26 @@ Treap*[] split(Treap, KeyType)(Treap* treap, KeyType key_tree_) {
 }
 
 /// add elem
-Treap* add_elem(Treap, KeyType, ValueType)(KeyType key_tree, ValueType value, Treap* treap) {
-    Treap* new_left;
-    Treap* new_right;
+InnerTreap* radd_elem(InnerTreap, KeyType, ValueType)(KeyType key_tree, ValueType value, InnerTreap* treap) {
+    InnerTreap* new_left;
+    InnerTreap* new_right;
     auto lexa = split(treap, key_tree);
     new_left = lexa[0]; new_right = lexa[1];
-    Treap* new_treap = new Treap(key_tree, value);
+    InnerTreap* new_treap = new InnerTreap(key_tree, value);
     return merge(merge(new_left, new_treap), new_right);
 }
 
 /// method on range
-Treap* method_on_range(MethodType, KeyType, Treap)(MethodType method, KeyType left_cl, KeyType right_op, Treap* treap) {
-    Treap* left_cut;
-    Treap* right_cut;
-    Treap* target;
-    [left_cut, target] = split(treap, left_cl);
-    [target, right_cut] = split(target, right_op);
+InnerTreap* rmethod_on_range(MethodType, KeyType, InnerTreap)(MethodType method, KeyType left_cl, KeyType right_op, InnerTreap* treap) {
+    InnerTreap* left_cut;
+    InnerTreap* right_cut;
+    InnerTreap* target;
+    auto obj = split(treap, left_cl);
+    left_cut = obj[0];
+    target = obj[1];
+    obj = split(target, right_op);
+    target = obj[0];
+    right_cut = obj[1];
     target.methods.accept_method(method);
     target.value.accept_method(method);
     target.stats.accept_method(method);
@@ -194,10 +198,10 @@ Treap* method_on_range(MethodType, KeyType, Treap)(MethodType method, KeyType le
 }
 
 /// stats on range
-StatType stats_on_range(StatType, KeyType, Treap)(KeyType left_cl, KeyType right_op, Treap* treap) {
-    Treap* left_cut;
-    Treap* right_cut;
-    Treap* target;
+StatType rstats_on_range(StatType, KeyType, InnerTreap)(KeyType left_cl, KeyType right_op, InnerTreap* treap) {
+    InnerTreap* left_cut;
+    InnerTreap* right_cut;
+    InnerTreap* target;
     auto lexa = split(treap, left_cl);
     left_cut = lexa[0]; target = lexa[1];
     lexa = split(target, right_op);
@@ -205,4 +209,30 @@ StatType stats_on_range(StatType, KeyType, Treap)(KeyType left_cl, KeyType right
     StatType stats = target.stats;
     treap = merge(merge(left_cut, target), right_cut);
     return stats;
+}
+
+/// treap wrapper
+struct Treap(alias UltimateStruct) {
+    alias KeyType = typeof(UltimateStruct.KeyType);
+    alias ValueType = typeof(UltimateStruct.ValueType);
+    alias StatType = typeof(UltimateStruct.StatType);
+    alias MethodType = typeof(UltimateStruct.MethodType);
+    /// ._.
+    InnerTreap!(UltimateStruct)* treap;
+    ///init
+    this(KeyType key, ValueType value) {
+        treap = new InnerTreap!(UltimateStruct)(key, value);
+    }
+    ///
+    void add_elem(KeyType key_tree, ValueType value) {
+        treap = radd_elem!(InnerTreap!(UltimateStruct), KeyType, ValueType)(key_tree, value, treap);
+    }
+    ///
+    void method_on_range(MethodType method, KeyType left_cl, KeyType right_op) {
+        treap = rmethod_on_range!(MethodType, KeyType, InnerTreap!(UltimateStruct))(method, left_cl, right_op, treap);
+    }
+    ///
+    StatType stats_on_range(KeyType left_cl, KeyType right_op) {
+        return rstats_on_range!(StatType, KeyType, InnerTreap!(UltimateStruct))(left_cl, right_op, treap);
+    }
 }
