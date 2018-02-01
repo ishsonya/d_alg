@@ -8,6 +8,7 @@ stats as described in their classes.
 import std.stdio;
 import std.algorithm;
 import std.random;
+import std.traits : hasMember, allSameType;
 
 
 ///
@@ -17,10 +18,24 @@ const uint MY_RAND_MAX = 1 << 31;
 // class TreapNode(KeyType, ValueType, MethodType, StatType) {
 /// Internal struct for a node of a treap
 struct TreapNode(alias TreapTypeCollection) {
+    static if ([ __traits(allMembers, TreapTypeCollection) ].canFind("MethodType"))
+    {
+        pragma(msg, [ __traits(allMembers, TreapTypeCollection) ]);
+        pragma(msg, "Got one");
+    }
+
     alias KeyType = TreapTypeCollection.KeyType;
     alias ValueType = TreapTypeCollection.ValueType;
-    alias StatType = TreapTypeCollection.StatType;
-    alias MethodType = TreapTypeCollection.MethodType;
+
+    static if (hasMember!(TreapTypeCollection, "StatType"))
+        alias StatType = TreapTypeCollection.StatType;
+    else
+        alias StatType = void;
+
+    static if (hasMember!(TreapTypeCollection, "MethodType"))
+        alias MethodType = TreapTypeCollection.MethodType;
+    else
+        alias MethodType = void;
     /// pointers to children
     TreapNode!(TreapTypeCollection)* left;
     /// ditto
@@ -32,9 +47,11 @@ struct TreapNode(alias TreapTypeCollection) {
     /// value
     ValueType value;
     /// statistics
-    StatType stats;
+    static if (!allSameType!(StatType, void))
+        StatType stats;
     /// methods
-    MethodType methods;
+    static if (!allSameType!(MethodType, void))
+        MethodType methods;
     /// init
     this(KeyType key_tree_, ValueType value_) {
         left = null;
@@ -42,9 +59,13 @@ struct TreapNode(alias TreapTypeCollection) {
         value = value_;
         key_tree = key_tree_;
         key_heap = uniform(0, MY_RAND_MAX);
-        stats = StatType(value_, key_tree_);
-        methods = MethodType();
-        methods.flush();
+        static if (!allSameType!(StatType, void))
+            stats = StatType(value_, key_tree_);
+        static if (!allSameType!(MethodType, void))
+        {
+            methods = MethodType();
+            methods.flush();
+        }
     }
     // TreapNode* opCall() {
     //     return null;
@@ -54,34 +75,38 @@ struct TreapNode(alias TreapTypeCollection) {
       It is guaranteed that values and statistics in children are
       correct(reflect those of a node and subtree respectively) after push.
     */
-    void push() {
-        if (left != null) {
-            left.value.accept_method(methods);
-            left.stats.accept_method(methods);
-            left.methods.accept_method(methods);
+    static if (!allSameType!(MethodType, void)) {
+        void push() {
+            if (left != null) {
+                left.value.accept_method(methods);
+                left.stats.accept_method(methods);
+                left.methods.accept_method(methods);
+            }
+            if (right != null) {
+                right.value.accept_method(methods);
+                right.stats.accept_method(methods);
+                right.methods.accept_method(methods);
+            }
+            methods.flush();
         }
-        if (right != null) {
-            right.value.accept_method(methods);
-            right.stats.accept_method(methods);
-            right.methods.accept_method(methods);
-        }
-        methods.flush();
     }
     /**
       Updates statistics os subtree in a node. It is guaranteed that
       statistics in a node are correct if statistics of children were correct.
     */
-    void update() {
-        StatType local_stat = StatType(value, key_tree);
-        if (left != null) {
-            stats = left.stats;
-            stats.accept_stats(local_stat);
-        }
-        else {
-            stats = local_stat;
-        }
-        if (right != null) {
-            stats.accept_stats(right.stats);
+    static if (!allSameType!(StatType, void)) {
+        void update() {
+            StatType local_stat = StatType(value, key_tree);
+            if (left != null) {
+                stats = left.stats;
+                stats.accept_stats(local_stat);
+            }
+            else {
+                stats = local_stat;
+            }
+            if (right != null) {
+                stats.accept_stats(right.stats);
+            }
         }
     }
 }
@@ -95,15 +120,19 @@ TreapNode* merge(TreapNode)(TreapNode* left_treap, TreapNode* right_treap) {
         return left_treap;
     }
     if (left_treap.key_heap < right_treap.key_heap) {
-        right_treap.push();
+        static if (!allSameType!(TreapNode.MethodType, void))
+            right_treap.push();
         right_treap.left = merge!TreapNode(left_treap, right_treap.left);
-        right_treap.update();
+        static if (!allSameType!(TreapNode.StatType, void))
+            right_treap.update();
         return right_treap;
     }
     else {
-        left_treap.push();
+        static if (!allSameType!(TreapNode.MethodType, void))
+            left_treap.push();
         left_treap.right = merge!TreapNode(left_treap.right, right_treap);
-        left_treap.update();
+        static if (!allSameType!(TreapNode.StatType, void))
+            left_treap.update();
         return left_treap;
     }
 }
@@ -123,7 +152,8 @@ TreapNode*[] split(TreapNode)(TreapNode* treap, TreapNode.KeyType key_tree_) {
     if (treap == null) {
         return [treap, treap];
     }
-    treap.push();
+    static if (!allSameType!(TreapNode.MethodType, void))
+        treap.push();
     TreapNode* left;
     TreapNode* right;
     TreapNode* temp;
@@ -140,7 +170,8 @@ TreapNode*[] split(TreapNode)(TreapNode* treap, TreapNode.KeyType key_tree_) {
         right = treap;
         right.left = temp;
     }
-    treap.update();
+    static if (!allSameType!(TreapNode.StatType, void))
+        treap.update();
     return [left, right];
 }
 
@@ -218,12 +249,21 @@ Treap type implements a multimap with statistics function and
 modification methods on subsegment.
 */
 struct Treap(alias TreapTypeCollection) {
+
     //types are unpacked from TreapTypeCollection
     alias KeyType = TreapTypeCollection.KeyType;
     alias ValueType = TreapTypeCollection.ValueType;
-    alias StatType = TreapTypeCollection.StatType;
-    alias MethodType = TreapTypeCollection.MethodType;
-    
+
+    static if (hasMember!(TreapTypeCollection, "StatType"))
+        alias StatType = TreapTypeCollection.StatType;
+    else
+        alias StatType = void;
+
+    static if (hasMember!(TreapTypeCollection, "MethodType"))
+        alias MethodType = TreapTypeCollection.MethodType;
+    else
+        alias MethodType = void;
+
     alias NodeType = TreapNode!(TreapTypeCollection);
     /// pointer to the root of recursive treap
     NodeType* root;
@@ -236,12 +276,16 @@ struct Treap(alias TreapTypeCollection) {
         root = radd_elem!NodeType(key_tree, value, root);
     }
     /// applys method on range. O(log(n)) average case
-    void method_on_range(MethodType method, KeyType left_cl, KeyType right_op) {
-        root = rmethod_on_range!NodeType(method, left_cl, right_op, root);
+    static if (!allSameType!(MethodType, void)) {
+        void method_on_range(MethodType method, KeyType left_cl, KeyType right_op) {
+            root = rmethod_on_range!NodeType(method, left_cl, right_op, root);
+        }
     }
     /// gets statistics on range. O(log(n)) average case
-    StatType stats_on_range(KeyType left_cl, KeyType right_op) {
-        return rstats_on_range!NodeType(left_cl, right_op, root);
+    static if (!allSameType!(StatType, void)) {
+        StatType stats_on_range(KeyType left_cl, KeyType right_op) {
+            return rstats_on_range!NodeType(left_cl, right_op, root);
+        }
     }
 }
 
@@ -314,6 +358,12 @@ struct TreapTypeCollection {
     alias StatType = Stat;
     alias MethodType = Method;
 }
+
+struct SimpleCollection {
+    alias KeyType = int;
+    alias ValueType = int;
+}
+
 unittest {
     int[] idx___value = [3, 5, 6, 24, 63, 2, 5, -8, 35, 12, 4, 6, 67];
     // InnerTreap!(TreapTypeCollection)* t = new InnerTreap!(TreapTypeCollection)(0, Value(0));
@@ -363,6 +413,16 @@ unittest {
     assert(all_stats.min_ == idx___value[3 .. 7].minElement);
     assert(all_stats.max_ == idx___value[3 .. 7].maxElement);
     writeln("Happy line :)");
+}
+
+unittest {
+    int[] idx___value = [3, 5, 6, 24, 63, 2, 5, -8, 35, 12, 4, 6, 67];
+    // InnerTreap!(TreapTypeCollection)* t = new InnerTreap!(TreapTypeCollection)(0, Value(0));
+    Treap!(SimpleCollection) t = Treap!(SimpleCollection)(0, 0);
+    foreach(idx; 0 .. idx___value.length) {
+        t.add_elem(idx + 1, idx___value[idx]);
+        // add_elem!(InnerTreap!(TreapTypeCollection), int, Value)(idx + 1, Value(idx___value[idx]), t);
+    }
 }
 
 void main() {
