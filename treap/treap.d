@@ -16,15 +16,15 @@ const uint MY_RAND_MAX = 1 << 31;
 //decart tree, heap-tree, cartesian tree
 // class TreapNode(KeyType, ValueType, MethodType, StatType) {
 /// Internal struct for a node of a treap
-struct TreapNode(alias UltimateStruct) {
-    alias KeyType = typeof(UltimateStruct.KeyType);
-    alias ValueType = typeof(UltimateStruct.ValueType);
-    alias StatType = typeof(UltimateStruct.StatType);
-    alias MethodType = typeof(UltimateStruct.MethodType);
+struct TreapNode(alias TreapTypeCollection) {
+    alias KeyType = TreapTypeCollection.KeyType;
+    alias ValueType = TreapTypeCollection.ValueType;
+    alias StatType = TreapTypeCollection.StatType;
+    alias MethodType = TreapTypeCollection.MethodType;
     /// pointers to children
-    TreapNode!(UltimateStruct)* left;
+    TreapNode!(TreapTypeCollection)* left;
     /// ditto
-    TreapNode!(UltimateStruct)* right;
+    TreapNode!(TreapTypeCollection)* right;
     /// keys
     KeyType key_tree;
     /// ditto
@@ -119,7 +119,7 @@ key_tree_ = key to split by
 Returns:
 tuple of pointers: to left and to right
 */
-TreapNode*[] split(TreapNode, KeyType)(TreapNode* treap, KeyType key_tree_) {
+TreapNode*[] split(TreapNode)(TreapNode* treap, TreapNode.KeyType key_tree_) {
     if (treap == null) {
         return [treap, treap];
     }
@@ -129,13 +129,13 @@ TreapNode*[] split(TreapNode, KeyType)(TreapNode* treap, KeyType key_tree_) {
     TreapNode* temp;
     if (key_tree_ > treap.key_tree) {
         // not sure if I can do this but I want to
-        auto lexa = split(treap.right, key_tree_);
+        auto lexa = split!(TreapNode)(treap.right, key_tree_);
         temp = lexa[0]; right = lexa[1];
         left = treap;
         left.right = temp;
     }
     else {
-        auto lexa = split(treap.left, key_tree_);
+        auto lexa = split!(TreapNode)(treap.left, key_tree_);
         left = lexa[0]; temp = lexa[1];
         right = treap;
         right.left = temp;
@@ -154,10 +154,10 @@ treap = pointer to the root of a tree in which element is added
 Returns:
 pointer to the root of new tree, with element added
 */
-TreapNode* radd_elem(TreapNode, KeyType, ValueType)(KeyType key_tree, ValueType value, TreapNode* treap) {
+TreapNode* radd_elem(TreapNode)(TreapNode.KeyType key_tree, TreapNode.ValueType value, TreapNode* treap) {
     TreapNode* new_left;
     TreapNode* new_right;
-    auto lexa = split(treap, key_tree);
+    auto lexa = split!(TreapNode)(treap, key_tree);
     new_left = lexa[0]; new_right = lexa[1];
     TreapNode* new_treap = new TreapNode(key_tree, value);
     return merge(merge(new_left, new_treap), new_right);
@@ -175,14 +175,14 @@ treap = pointer to the root of a tree to subsegment of which the method is appli
 Returns:
 Pointer to the root of a new treap with applied method
 */
-TreapNode* rmethod_on_range(MethodType, KeyType, TreapNode)(MethodType method, KeyType left_cl, KeyType right_op, TreapNode* treap) {
+TreapNode* rmethod_on_range(TreapNode)(TreapNode.MethodType method, TreapNode.KeyType left_cl, TreapNode.KeyType right_op, TreapNode* treap) {
     TreapNode* left_cut;
     TreapNode* right_cut;
     TreapNode* target;
-    auto obj = split(treap, left_cl);
+    auto obj = split!(TreapNode)(treap, left_cl);
     left_cut = obj[0];
     target = obj[1];
-    obj = split(target, right_op);
+    obj = split!(TreapNode)(target, right_op);
     target = obj[0];
     right_cut = obj[1];
     target.methods.accept_method(method);
@@ -199,15 +199,16 @@ left_cl = left closed border of a range on which statistics are requested
 right_op = right opened border of a range on which statistics are requested
 treap = pointer to the root of a tree on subsegment of which statistics are requested
 */
-StatType rstats_on_range(StatType, KeyType, TreapNode)(KeyType left_cl, KeyType right_op, TreapNode* treap) {
+//HOW THE FUCK IS THIS EVEN LEGAL?!
+TreapNode.StatType rstats_on_range(TreapNode)(TreapNode.KeyType left_cl, TreapNode.KeyType right_op, TreapNode* treap) {
     TreapNode* left_cut;
     TreapNode* right_cut;
     TreapNode* target;
-    auto lexa = split(treap, left_cl);
+    auto lexa = split!(TreapNode)(treap, left_cl);
     left_cut = lexa[0]; target = lexa[1];
-    lexa = split(target, right_op);
+    lexa = split!(TreapNode)(target, right_op);
     target = lexa[0]; right_cut = lexa[1];
-    StatType stats = target.stats;
+    TreapNode.StatType stats = target.stats;
     treap = merge(merge(left_cut, target), right_cut);
     return stats;
 }
@@ -216,29 +217,29 @@ StatType rstats_on_range(StatType, KeyType, TreapNode)(KeyType left_cl, KeyType 
 Treap type implements a multimap with statistics function and
 modification methods on subsegment.
 */
-struct Treap(alias UltimateStruct) {
-    //types are unpacked from UltimateStruct
-    alias KeyType = typeof(UltimateStruct.KeyType);
-    alias ValueType = typeof(UltimateStruct.ValueType);
-    alias StatType = typeof(UltimateStruct.StatType);
-    alias MethodType = typeof(UltimateStruct.MethodType);
+struct Treap(alias TreapTypeCollection) {
+    //types are unpacked from TreapTypeCollection
+    alias KeyType = TreapTypeCollection.KeyType;
+    alias ValueType = TreapTypeCollection.ValueType;
+    alias StatType = TreapTypeCollection.StatType;
+    alias MethodType = TreapTypeCollection.MethodType;
     /// pointer to the root of recursive treap
-    TreapNode!(UltimateStruct)* treap;
+    TreapNode!(TreapTypeCollection)* treap;
     /// constructor from one element
     this(KeyType key, ValueType value) {
-        treap = new TreapNode!(UltimateStruct)(key, value);
+        treap = new TreapNode!(TreapTypeCollection)(key, value);
     }
     /// adds element into the Treap. O(log(n)) average case
     void add_elem(KeyType key_tree, ValueType value) {
-        treap = radd_elem!(TreapNode!(UltimateStruct), KeyType, ValueType)(key_tree, value, treap);
+        treap = radd_elem!(TreapNode!(TreapTypeCollection))(key_tree, value, treap);
     }
     /// applys method on range. O(log(n)) average case
     void method_on_range(MethodType method, KeyType left_cl, KeyType right_op) {
-        treap = rmethod_on_range!(MethodType, KeyType, TreapNode!(UltimateStruct))(method, left_cl, right_op, treap);
+        treap = rmethod_on_range!(TreapNode!(TreapTypeCollection))(method, left_cl, right_op, treap);
     }
     /// gets statistics on range. O(log(n)) average case
     StatType stats_on_range(KeyType left_cl, KeyType right_op) {
-        return rstats_on_range!(StatType, KeyType, TreapNode!(UltimateStruct))(left_cl, right_op, treap);
+        return rstats_on_range!(TreapNode!(TreapTypeCollection))(left_cl, right_op, treap);
     }
 }
 
@@ -305,20 +306,20 @@ struct Stat {
     }
 }
 
-struct UltimateStruct {
-    int KeyType;
-    Value ValueType;
-    Stat StatType;
-    Method MethodType;
+struct TreapTypeCollection {
+    alias KeyType = int;
+    alias ValueType = Value;
+    alias StatType = Stat;
+    alias MethodType = Method;
 }
 unittest {
     int[] idx___value = [3, 5, 6, 24, 63, 2, 5, -8, 35, 12, 4, 6, 67];
-    // InnerTreap!(UltimateStruct)* t = new InnerTreap!(UltimateStruct)(0, Value(0));
-    Treap!(UltimateStruct) t = Treap!(UltimateStruct)(0, Value(0));
+    // InnerTreap!(TreapTypeCollection)* t = new InnerTreap!(TreapTypeCollection)(0, Value(0));
+    Treap!(TreapTypeCollection) t = Treap!(TreapTypeCollection)(0, Value(0));
     foreach(idx; 0 .. idx___value.length) {
         pragma(msg, typeof(t));
         t.add_elem(idx + 1, Value(idx___value[idx]));
-        // add_elem!(InnerTreap!(UltimateStruct), int, Value)(idx + 1, Value(idx___value[idx]), t);
+        // add_elem!(InnerTreap!(TreapTypeCollection), int, Value)(idx + 1, Value(idx___value[idx]), t);
     }
     idx___value = [0] ~ idx___value;
     Stat all_stats = t.stats_on_range(-1, 100);
