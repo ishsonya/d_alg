@@ -14,26 +14,28 @@ import std.random;
 const uint MY_RAND_MAX = 1 << 31;
 
 //decart tree, heap-tree, cartesian tree
-// class InnerTreap(KeyType, ValueType, MethodType, StatType) {
+// class TreapNode(KeyType, ValueType, MethodType, StatType) {
 /// Internal struct for a node of a treap
-struct InnerTreap(alias UltimateStruct) {
+struct TreapNode(alias UltimateStruct) {
     alias KeyType = typeof(UltimateStruct.KeyType);
     alias ValueType = typeof(UltimateStruct.ValueType);
     alias StatType = typeof(UltimateStruct.StatType);
     alias MethodType = typeof(UltimateStruct.MethodType);
     /// pointers to children
-    InnerTreap!(UltimateStruct)* left;
-    InnerTreap!(UltimateStruct)* right; /// ditto
+    TreapNode!(UltimateStruct)* left;
+    /// ditto
+    TreapNode!(UltimateStruct)* right;
     /// keys
     KeyType key_tree;
-    const int key_heap; /// ditto
+    /// ditto
+    const int key_heap;
     /// value
     ValueType value;
     /// statistics
     StatType stats;
     /// methods
     MethodType methods;
-
+    /// init
     this(KeyType key_tree_, ValueType value_) {
         left = null;
         right = null;
@@ -42,8 +44,9 @@ struct InnerTreap(alias UltimateStruct) {
         key_heap = uniform(0, MY_RAND_MAX);
         stats = StatType(value_, key_tree_);
         methods = MethodType();
+        methods.flush();
     }
-    // InnerTreap* opCall() {
+    // TreapNode* opCall() {
     //     return null;
     // }
     /**
@@ -84,7 +87,7 @@ struct InnerTreap(alias UltimateStruct) {
 }
 
 ///merges 2 rtrees into one
-InnerTreap* merge(InnerTreap)(InnerTreap* left_treap, InnerTreap* right_treap) {
+TreapNode* merge(TreapNode)(TreapNode* left_treap, TreapNode* right_treap) {
     if (left_treap == null) {
         return right_treap;
     }
@@ -93,13 +96,13 @@ InnerTreap* merge(InnerTreap)(InnerTreap* left_treap, InnerTreap* right_treap) {
     }
     if (left_treap.key_heap < right_treap.key_heap) {
         right_treap.push();
-        right_treap.left = merge!InnerTreap(left_treap, right_treap.left);
+        right_treap.left = merge!TreapNode(left_treap, right_treap.left);
         right_treap.update();
         return right_treap;
     }
     else {
         left_treap.push();
-        left_treap.right = merge!InnerTreap(left_treap.right, right_treap);
+        left_treap.right = merge!TreapNode(left_treap.right, right_treap);
         left_treap.update();
         return left_treap;
     }
@@ -116,14 +119,14 @@ key_tree_ = key to split by
 Returns:
 tuple of pointers: to left and to right
 */
-InnerTreap*[] split(InnerTreap, KeyType)(InnerTreap* treap, KeyType key_tree_) {
+TreapNode*[] split(TreapNode, KeyType)(TreapNode* treap, KeyType key_tree_) {
     if (treap == null) {
         return [treap, treap];
     }
     treap.push();
-    InnerTreap* left;
-    InnerTreap* right;
-    InnerTreap* temp;
+    TreapNode* left;
+    TreapNode* right;
+    TreapNode* temp;
     if (key_tree_ > treap.key_tree) {
         // not sure if I can do this but I want to
         auto lexa = split(treap.right, key_tree_);
@@ -151,12 +154,12 @@ treap = pointer to the root of a tree in which element is added
 Returns:
 pointer to the root of new tree, with element added
 */
-InnerTreap* radd_elem(InnerTreap, KeyType, ValueType)(KeyType key_tree, ValueType value, InnerTreap* treap) {
-    InnerTreap* new_left;
-    InnerTreap* new_right;
+TreapNode* radd_elem(TreapNode, KeyType, ValueType)(KeyType key_tree, ValueType value, TreapNode* treap) {
+    TreapNode* new_left;
+    TreapNode* new_right;
     auto lexa = split(treap, key_tree);
     new_left = lexa[0]; new_right = lexa[1];
-    InnerTreap* new_treap = new InnerTreap(key_tree, value);
+    TreapNode* new_treap = new TreapNode(key_tree, value);
     return merge(merge(new_left, new_treap), new_right);
 }
 
@@ -172,10 +175,10 @@ treap = pointer to the root of a tree to subsegment of which the method is appli
 Returns:
 Pointer to the root of a new treap with applied method
 */
-InnerTreap* rmethod_on_range(MethodType, KeyType, InnerTreap)(MethodType method, KeyType left_cl, KeyType right_op, InnerTreap* treap) {
-    InnerTreap* left_cut;
-    InnerTreap* right_cut;
-    InnerTreap* target;
+TreapNode* rmethod_on_range(MethodType, KeyType, TreapNode)(MethodType method, KeyType left_cl, KeyType right_op, TreapNode* treap) {
+    TreapNode* left_cut;
+    TreapNode* right_cut;
+    TreapNode* target;
     auto obj = split(treap, left_cl);
     left_cut = obj[0];
     target = obj[1];
@@ -196,10 +199,10 @@ left_cl = left closed border of a range on which statistics are requested
 right_op = right opened border of a range on which statistics are requested
 treap = pointer to the root of a tree on subsegment of which statistics are requested
 */
-StatType rstats_on_range(StatType, KeyType, InnerTreap)(KeyType left_cl, KeyType right_op, InnerTreap* treap) {
-    InnerTreap* left_cut;
-    InnerTreap* right_cut;
-    InnerTreap* target;
+StatType rstats_on_range(StatType, KeyType, TreapNode)(KeyType left_cl, KeyType right_op, TreapNode* treap) {
+    TreapNode* left_cut;
+    TreapNode* right_cut;
+    TreapNode* target;
     auto lexa = split(treap, left_cl);
     left_cut = lexa[0]; target = lexa[1];
     lexa = split(target, right_op);
@@ -220,21 +223,145 @@ struct Treap(alias UltimateStruct) {
     alias StatType = typeof(UltimateStruct.StatType);
     alias MethodType = typeof(UltimateStruct.MethodType);
     /// pointer to the root of recursive treap
-    InnerTreap!(UltimateStruct)* treap;
+    TreapNode!(UltimateStruct)* treap;
     /// constructor from one element
     this(KeyType key, ValueType value) {
-        treap = new InnerTreap!(UltimateStruct)(key, value);
+        treap = new TreapNode!(UltimateStruct)(key, value);
     }
     /// adds element into the Treap. O(log(n)) average case
     void add_elem(KeyType key_tree, ValueType value) {
-        treap = radd_elem!(InnerTreap!(UltimateStruct), KeyType, ValueType)(key_tree, value, treap);
+        treap = radd_elem!(TreapNode!(UltimateStruct), KeyType, ValueType)(key_tree, value, treap);
     }
     /// applys method on range. O(log(n)) average case
     void method_on_range(MethodType method, KeyType left_cl, KeyType right_op) {
-        treap = rmethod_on_range!(MethodType, KeyType, InnerTreap!(UltimateStruct))(method, left_cl, right_op, treap);
+        treap = rmethod_on_range!(MethodType, KeyType, TreapNode!(UltimateStruct))(method, left_cl, right_op, treap);
     }
     /// gets statistics on range. O(log(n)) average case
     StatType stats_on_range(KeyType left_cl, KeyType right_op) {
-        return rstats_on_range!(StatType, KeyType, InnerTreap!(UltimateStruct))(left_cl, right_op, treap);
+        return rstats_on_range!(StatType, KeyType, TreapNode!(UltimateStruct))(left_cl, right_op, treap);
     }
+}
+
+
+struct Method {
+    ///
+    int to_add;
+    ///init full
+    this(int t_a) {
+        to_add = t_a;
+    }
+    /// push
+    void accept_method(ref Method method) {
+        to_add += method.to_add;
+    }
+    /// clean up
+    void flush() {
+        to_add = 0;
+    }
+}
+
+struct Value {
+    int value;
+    this(int a) {
+        value = a;
+    }
+    void accept_method(ref Method method) {
+        value += method.to_add;
+    }
+}
+
+///stats
+struct Stat {
+    ///
+    int max_;
+    ///
+    int min_;
+    ///
+    int elems_nr_;
+    ///
+    int min_idx_;
+    ///
+    int sum_;
+    /// init
+    this(Value val, int key_tree) {
+        max_ = val.value;
+        min_ = val.value;
+        min_idx_ = key_tree;
+        elems_nr_ = 1;
+        sum_ = val.value;
+    }
+    /// update
+    void accept_stats(ref Stat stats) {
+        max_ = max(max_, stats.max_);
+        min_ = min(min_, stats.min_);
+        elems_nr_ += stats.elems_nr_;
+        sum_ += stats.sum_;
+    }
+    /// push
+    void accept_method(ref Method method) {
+        max_ += method.to_add;
+        min_ += method.to_add;
+        sum_ += method.to_add * elems_nr_;
+    }
+}
+
+struct UltimateStruct {
+    int KeyType;
+    Value ValueType;
+    Stat StatType;
+    Method MethodType;
+}
+unittest {
+    int[] idx___value = [3, 5, 6, 24, 63, 2, 5, -8, 35, 12, 4, 6, 67];
+    // InnerTreap!(UltimateStruct)* t = new InnerTreap!(UltimateStruct)(0, Value(0));
+    Treap!(UltimateStruct) t = Treap!(UltimateStruct)(0, Value(0));
+    foreach(idx; 0 .. idx___value.length) {
+        pragma(msg, typeof(t));
+        t.add_elem(idx + 1, Value(idx___value[idx]));
+        // add_elem!(InnerTreap!(UltimateStruct), int, Value)(idx + 1, Value(idx___value[idx]), t);
+    }
+    idx___value = [0] ~ idx___value;
+    Stat all_stats = t.stats_on_range(-1, 100);
+    assert(idx___value.length == all_stats.elems_nr_);
+    int curr_sum = idx___value.sum;
+    assert(curr_sum == all_stats.sum_);
+    assert(idx___value.minElement == all_stats.min_);
+    assert(idx___value.maxElement == all_stats.max_);
+    Method meth = Method(3);
+    foreach (ref elem; idx___value) {
+        elem += 3;
+    }
+    t.method_on_range(meth, -1, 100);
+    all_stats = t.stats_on_range(-1, 100);
+    assert(idx___value.length == all_stats.elems_nr_);
+    curr_sum = idx___value.sum;
+    writeln(idx___value.sum, " ", all_stats.sum_);
+    assert(curr_sum == all_stats.sum_);
+    assert(idx___value.minElement == all_stats.min_);
+    assert(idx___value.maxElement == all_stats.max_);
+    // t.method_on_range(meth, -1, 100);
+    // assert(1 == 's');
+    all_stats = t.stats_on_range(3, 7);
+    assert(all_stats.elems_nr_ == 4);
+    curr_sum = idx___value[3 .. 7].sum;
+    writeln(curr_sum, " ", all_stats.sum_);
+    assert(curr_sum == all_stats.sum_);
+    assert(all_stats.min_ == idx___value[3 .. 7].minElement);
+    assert(all_stats.max_ == idx___value[3 .. 7].maxElement);
+    meth = Method(-3);
+    foreach (ref elem; idx___value) {
+        elem -= 3;
+    }
+    t.method_on_range(meth, 3, 7);
+    all_stats = t.stats_on_range(3, 7);
+    assert(all_stats.elems_nr_ == 4);
+    curr_sum = idx___value[3 .. 7].sum;
+    assert(curr_sum == all_stats.sum_);
+    assert(all_stats.min_ == idx___value[3 .. 7].minElement);
+    assert(all_stats.max_ == idx___value[3 .. 7].maxElement);
+    writeln("Happy line :)");
+}
+
+void main() {
+    // writeln("why so serious?");
 }
