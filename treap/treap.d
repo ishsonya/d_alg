@@ -223,23 +223,25 @@ struct Treap(alias TreapTypeCollection) {
     alias ValueType = TreapTypeCollection.ValueType;
     alias StatType = TreapTypeCollection.StatType;
     alias MethodType = TreapTypeCollection.MethodType;
+    
+    alias NodeType = TreapNode!(TreapTypeCollection);
     /// pointer to the root of recursive treap
-    TreapNode!(TreapTypeCollection)* treap;
+    NodeType* root;
     /// constructor from one element
     this(KeyType key, ValueType value) {
-        treap = new TreapNode!(TreapTypeCollection)(key, value);
+        root = new NodeType(key, value);
     }
     /// adds element into the Treap. O(log(n)) average case
     void add_elem(KeyType key_tree, ValueType value) {
-        treap = radd_elem!(TreapNode!(TreapTypeCollection))(key_tree, value, treap);
+        root = radd_elem!NodeType(key_tree, value, root);
     }
     /// applys method on range. O(log(n)) average case
     void method_on_range(MethodType method, KeyType left_cl, KeyType right_op) {
-        treap = rmethod_on_range!(TreapNode!(TreapTypeCollection))(method, left_cl, right_op, treap);
+        root = rmethod_on_range!NodeType(method, left_cl, right_op, root);
     }
     /// gets statistics on range. O(log(n)) average case
     StatType stats_on_range(KeyType left_cl, KeyType right_op) {
-        return rstats_on_range!(TreapNode!(TreapTypeCollection))(left_cl, right_op, treap);
+        return rstats_on_range!NodeType(left_cl, right_op, root);
     }
 }
 
